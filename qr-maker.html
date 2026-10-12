@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="theme-color" content="#f5f8f3">
-    <title>국화 안내 QR 코드 만들기</title>
+    <title>국화 품종 QR</title>
     <style>
       :root { font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif; color: #17331f; background: #f5f8f3; }
       * { box-sizing: border-box; }
@@ -12,36 +12,18 @@
       main { width: min(1040px, 100%); margin: 0 auto; }
       a { color: #17623d; text-underline-offset: 3px; }
       h1 { margin: 18px 0 12px; font-size: clamp(2rem, 7vw, 4.5rem); line-height: 1; letter-spacing: -0.055em; }
-      .lead { max-width: 700px; color: #5c7061; line-height: 1.65; }
-      .controls { display: flex; gap: 10px; margin: 28px 0 34px; padding: 16px; border-radius: 18px; background: #fff; box-shadow: 0 14px 40px rgb(30 72 39 / 9%); }
-      input { min-width: 0; flex: 1; padding: 13px 15px; border: 1px solid #cad8cc; border-radius: 12px; font: inherit; }
-      button { border: 0; border-radius: 12px; padding: 13px 18px; background: #17623d; color: #fff; font: inherit; font-weight: 800; cursor: pointer; }
-      button:focus-visible, input:focus-visible, a:focus-visible { outline: 3px solid #22a2b2; outline-offset: 3px; }
-      .status { min-height: 1.5em; color: #9b3c29; font-weight: 700; }
-      .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; }
+      a:focus-visible { outline: 3px solid #22a2b2; outline-offset: 3px; }
+      .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; margin-top: 34px; }
       .qr-card { padding: 20px; border: 1px solid rgb(24 66 37 / 12%); border-radius: 20px; background: #fff; text-align: center; box-shadow: 0 14px 40px rgb(30 72 39 / 8%); }
       canvas { display: block; width: 100% !important; height: auto !important; }
-      .qr-card h2 { margin: 16px 0 4px; font-size: 1.1rem; }
-      .url { min-height: 2.8em; margin: 0 0 14px; color: #657369; font-size: 0.75rem; line-height: 1.4; word-break: break-all; }
-      .download { width: 100%; background: #e6f4eb; color: #17623d; }
-      @media (max-width: 620px) { .controls { flex-direction: column; } }
-      @media print { body { padding: 0; background: #fff; } .no-print, .download { display: none; } .grid { grid-template-columns: repeat(2, 1fr); } .qr-card { break-inside: avoid; box-shadow: none; } }
+      .qr-card h2 { margin: 16px 0 0; font-size: 1.1rem; }
+      @media print { body { padding: 0; background: #fff; } .back { display: none; } .grid { grid-template-columns: repeat(2, 1fr); } .qr-card { break-inside: avoid; box-shadow: none; } }
     </style>
   </head>
   <body>
     <main>
-      <div class="no-print">
-        <a href="./">← 품종 목록</a>
-        <h1>QR 코드 7개 만들기</h1>
-        <p class="lead">GitHub Pages 배포가 끝난 뒤 공개 주소를 넣으세요. 각 품종 페이지로 바로 연결되는 QR 코드가 만들어지며, 하나씩 PNG로 저장하거나 이 페이지를 인쇄할 수 있습니다.</p>
-        <div class="controls">
-          <label for="base-url" style="position:absolute;left:-9999px">사이트 기본 주소</label>
-          <input id="base-url" type="url" inputmode="url" placeholder="https://사용자이름.github.io/gukhwa-qr/">
-          <button id="generate" type="button">QR 7개 생성</button>
-          <button id="print" type="button">인쇄</button>
-        </div>
-        <p id="status" class="status" role="status"></p>
-      </div>
+      <a class="back" href="./">← 품종 목록</a>
+      <h1>국화 품종 QR</h1>
       <section id="qr-grid" class="grid" aria-label="품종별 QR 코드"></section>
     </main>
 
@@ -49,58 +31,27 @@
       import QRCode from "https://cdn.jsdelivr.net/npm/qrcode@1.5.4/+esm";
 
       const varieties = [
-        ["마이윙", "my-wing"],
-        ["마이시티", "my-city"],
-        ["마이엘프", "my-elf"],
-        ["마이허밍", "my-humming"],
-        ["마이티니", "my-teeny"],
-        ["마이허니", "my-honey"],
-        ["마이써니", "my-sunny"]
+        "마이윙",
+        "마이시티",
+        "마이엘프",
+        "마이허밍",
+        "마이티니",
+        "마이허니",
+        "마이써니"
       ];
 
-      const baseInput = document.querySelector("#base-url");
       const grid = document.querySelector("#qr-grid");
-      const status = document.querySelector("#status");
-      const currentBase = new URL("./", window.location.href);
-      if (currentBase.protocol === "https:" || currentBase.protocol === "http:") {
-        baseInput.value = currentBase.href;
-      }
+      const base = new URL("./", window.location.href);
 
-      function normalizedBase(value) {
-        const url = new URL(value);
-        if (url.protocol !== "https:" && url.protocol !== "http:") throw new Error("웹 주소는 http:// 또는 https://로 시작해야 합니다.");
-        url.hash = "";
-        url.search = "";
-        if (!url.pathname.endsWith("/")) url.pathname += "/";
-        return url.href;
-      }
-
-      async function generate() {
-        status.textContent = "";
-        grid.replaceChildren();
-        let base;
-        try {
-          base = normalizedBase(baseInput.value.trim());
-        } catch (error) {
-          status.textContent = error.message;
-          return;
-        }
-
-        for (const [index, [name, filename]] of varieties.entries()) {
+      async function showQRCodes() {
+        for (const [index, name] of varieties.entries()) {
           const url = new URL(`${index + 1}/`, base).href;
           const card = document.createElement("article");
           card.className = "qr-card";
           const canvas = document.createElement("canvas");
           const title = document.createElement("h2");
-          const text = document.createElement("p");
-          const button = document.createElement("button");
           title.textContent = `${index + 1}. ${name}`;
-          text.className = "url";
-          text.textContent = url;
-          button.className = "download";
-          button.type = "button";
-          button.textContent = "PNG 저장";
-          card.append(canvas, title, text, button);
+          card.append(canvas, title);
           grid.append(card);
 
           await QRCode.toCanvas(canvas, url, {
@@ -109,19 +60,10 @@
             errorCorrectionLevel: "H",
             color: { dark: "#102d23", light: "#ffffff" }
           });
-
-          button.addEventListener("click", () => {
-            const link = document.createElement("a");
-            link.download = `qr-${index + 1}-${filename}.png`;
-            link.href = canvas.toDataURL("image/png");
-            link.click();
-          });
         }
       }
 
-      document.querySelector("#generate").addEventListener("click", generate);
-      document.querySelector("#print").addEventListener("click", () => window.print());
-      if (baseInput.value) generate();
+      showQRCodes();
     </script>
   </body>
 </html>
